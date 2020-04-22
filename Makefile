@@ -60,9 +60,7 @@ PKGNAME = github.com/hyperledger/$(PROJECT_NAME)
 
 METADATA_VAR = Version=$(PROJECT_VERSION)
 
-# hardcode until release jobs migrate to new CI
-# GO_VER = $(shell grep "GO_VER" ci.properties | cut -d '=' -f2-)
-GO_VER = 1.13.4
+GO_VER = 1.13.8
 GO_SOURCE := $(shell find . -name '*.go')
 GO_LDFLAGS = $(patsubst %,-X $(PKGNAME)/lib/metadata.%,$(METADATA_VAR))
 export GO_LDFLAGS
@@ -71,7 +69,7 @@ IMAGES = $(PROJECT_NAME)
 FVTIMAGE = $(PROJECT_NAME)-fvt
 
 RELEASE_PLATFORMS = linux-amd64 darwin-amd64 linux-ppc64le linux-s390x windows-amd64
-RELEASE_PKGS = fabric-ca-client
+RELEASE_PKGS = fabric-ca-client fabric-ca-server
 
 TOOLS = build/tools
 
@@ -79,9 +77,10 @@ path-map.fabric-ca-client := cmd/fabric-ca-client
 path-map.fabric-ca-server := cmd/fabric-ca-server
 
 include docker-env.mk
-include gotools.mk
 
 all: rename docker unit-tests
+
+include gotools.mk
 
 rename: .FORCE
 	@scripts/rename-repo
@@ -225,16 +224,13 @@ release-all: $(patsubst %,release/%, $(RELEASE_PLATFORMS))
 
 release/windows-amd64: GOOS=windows
 release/windows-amd64: CC=/usr/bin/x86_64-w64-mingw32-gcc
-release/windows-amd64: GO_TAGS+= caclient
 release/windows-amd64: $(patsubst %,release/windows-amd64/bin/%, $(RELEASE_PKGS))
 
 release/darwin-amd64: GOOS=darwin
 release/darwin-amd64: CC=/usr/bin/clang
-release/darwin-amd64: GO_TAGS+= caclient
 release/darwin-amd64: $(patsubst %,release/darwin-amd64/bin/%, $(RELEASE_PKGS))
 
 release/linux-amd64: GOOS=linux
-release/linux-amd64: GO_TAGS+= caclient
 release/linux-amd64: $(patsubst %,release/linux-amd64/bin/%, $(RELEASE_PKGS))
 
 release/%-amd64: GOARCH=amd64
@@ -242,15 +238,19 @@ release/%-amd64: GOARCH=amd64
 release/linux-%: GOOS=linux
 
 release/linux-ppc64le: GOARCH=ppc64le
-release/linux-ppc64le: GO_TAGS+= caclient
 release/linux-ppc64le: CC=/usr/bin/powerpc64le-linux-gnu-gcc
 release/linux-ppc64le: $(patsubst %,release/linux-ppc64le/bin/%, $(RELEASE_PKGS))
 
 release/linux-s390x: GOARCH=s390x
-release/linux-s390x: GO_TAGS+= caclient
 release/linux-s390x: $(patsubst %,release/linux-s390x/bin/%, $(RELEASE_PKGS))
 
+release/%/bin/fabric-ca-client: GO_TAGS+= caclient
 release/%/bin/fabric-ca-client: $(GO_SOURCE)
+	@echo "Building $@ for $(GOOS)-$(GOARCH)"
+	mkdir -p $(@D)
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(abspath $@) -tags "$(GO_TAGS)" -ldflags "$(GO_LDFLAGS)" $(PKGNAME)/$(path-map.$(@F))
+
+release/%/bin/fabric-ca-server: $(GO_SOURCE)
 	@echo "Building $@ for $(GOOS)-$(GOARCH)"
 	mkdir -p $(@D)
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(abspath $@) -tags "$(GO_TAGS)" -ldflags "$(GO_LDFLAGS)" $(PKGNAME)/$(path-map.$(@F))
@@ -266,18 +266,18 @@ docker-thirdparty:
 
 .PHONY: dist
 dist: dist-clean release
-	cd release/$(MARCH) && tar -czvf hyperledger-fabric-ca-$(MARCH).$(PROJECT_VERSION).tar.gz *
+	cd release/$(MARCH) && tar -czvf hyperledger-fabric-ca-$(MARCH)-$(PROJECT_VERSION).tar.gz *
 dist-all: dist-clean release-all $(patsubst %,dist/%, $(RELEASE_PLATFORMS))
 dist/windows-amd64:
-	cd release/windows-amd64 && tar -czvf hyperledger-fabric-ca-windows-amd64.$(PROJECT_VERSION).tar.gz *
+	cd release/windows-amd64 && tar -czvf hyperledger-fabric-ca-windows-amd64-$(PROJECT_VERSION).tar.gz *
 dist/darwin-amd64:
-	cd release/darwin-amd64 && tar -czvf hyperledger-fabric-ca-darwin-amd64.$(PROJECT_VERSION).tar.gz *
+	cd release/darwin-amd64 && tar -czvf hyperledger-fabric-ca-darwin-amd64-$(PROJECT_VERSION).tar.gz *
 dist/linux-amd64:
-	cd release/linux-amd64 && tar -czvf hyperledger-fabric-ca-linux-amd64.$(PROJECT_VERSION).tar.gz *
+	cd release/linux-amd64 && tar -czvf hyperledger-fabric-ca-linux-amd64-$(PROJECT_VERSION).tar.gz *
 dist/linux-ppc64le:
-	cd release/linux-ppc64le && tar -czvf hyperledger-fabric-ca-linux-ppc64le.$(PROJECT_VERSION).tar.gz *
+	cd release/linux-ppc64le && tar -czvf hyperledger-fabric-ca-linux-ppc64le-$(PROJECT_VERSION).tar.gz *
 dist/linux-s390x:
-	cd release/linux-s390x && tar -czvf hyperledger-fabric-ca-linux-s390x.$(PROJECT_VERSION).tar.gz *
+	cd release/linux-s390x && tar -czvf hyperledger-fabric-ca-linux-s390x-$(PROJECT_VERSION).tar.gz *
 
 .PHONY: clean
 clean: docker-clean release-clean
@@ -293,14 +293,10 @@ release-clean: $(patsubst %,%-release-clean, $(RELEASE_PLATFORMS))
 
 .PHONY: dist-clean
 dist-clean:
-	-@rm -rf release/windows-amd64/hyperledger-fabric-ca-windows-amd64.$(PROJECT_VERSION).tar.gz ||:
-	-@rm -rf release/darwin-amd64/hyperledger-fabric-ca-darwin-amd64.$(PROJECT_VERSION).tar.gz ||:
-	-@rm -rf release/linux-amd64/hyperledger-fabric-ca-linux-amd64.$(PROJECT_VERSION).tar.gz ||:
-	-@rm -rf release/linux-ppc64le/hyperledger-fabric-ca-linux-ppc64le.$(PROJECT_VERSION).tar.gz ||:
-	-@rm -rf release/linux-s390x/hyperledger-fabric-ca-linux-s390x.$(PROJECT_VERSION).tar.gz ||:
+	-@rm -rf release/windows-amd64/hyperledger-fabric-ca-windows-amd64-$(PROJECT_VERSION).tar.gz ||:
+	-@rm -rf release/darwin-amd64/hyperledger-fabric-ca-darwin-amd64-$(PROJECT_VERSION).tar.gz ||:
+	-@rm -rf release/linux-amd64/hyperledger-fabric-ca-linux-amd64-$(PROJECT_VERSION).tar.gz ||:
+	-@rm -rf release/linux-ppc64le/hyperledger-fabric-ca-linux-ppc64le-$(PROJECT_VERSION).tar.gz ||:
+	-@rm -rf release/linux-s390x/hyperledger-fabric-ca-linux-s390x-$(PROJECT_VERSION).tar.gz ||:
 
 .FORCE:
-
-generate-metrics-doc:
-	@echo "Generating metrics reference documentation..."
-	@./scripts/metrics_doc.sh

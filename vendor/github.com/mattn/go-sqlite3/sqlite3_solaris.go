@@ -1,13 +1,14 @@
-// Copyright (C) 2014 Yasuhiro Matsumoto <mattn.jp@gmail.com>.
+// Copyright (C) 2019 Yasuhiro Matsumoto <mattn.jp@gmail.com>.
 //
 // Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
-// +build icu 
+
+// +build solaris
 
 package sqlite3
 
 /*
-#cgo LDFLAGS: -licuuc -licui18n
-#cgo CFLAGS: -DSQLITE_ENABLE_ICU
+#cgo CFLAGS: -D__EXTENSIONS__=1
+#cgo LDFLAGS: -lc
 */
 import "C"
