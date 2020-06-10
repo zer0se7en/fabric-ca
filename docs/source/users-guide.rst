@@ -184,19 +184,16 @@ Docker Hub
 
 Go to: https://hub.docker.com/r/hyperledger/fabric-ca/tags/
 
-Find the tag that matches the architecture and version of fabric-ca
-that you want to pull.
+Find the tag that matches the architecture and version of fabric-ca that you
+want to pull.
 
-Navigate to `$GOPATH/src/github.com/hyperledger/fabric-ca/docker/server`
-and open up docker-compose.yml in an editor.
-
-Change the `image` line to reflect the tag you found previously. The file
-may look like this for an x86 architecture for version beta.
+Create a `docker-compose.yml` file like the one below. Change the `image` line
+to reflect the tag you found previously.
 
 .. code:: yaml
 
     fabric-ca-server:
-      image: hyperledger/fabric-ca:x86_64-1.0.0-beta
+      image: hyperledger/fabric-ca:amd64-1.4.7
       container_name: fabric-ca-server
       ports:
         - "7054:7054"
@@ -2322,8 +2319,6 @@ point to the location where the SoftHSM2 configuration file is stored. The confi
   directories.tokendir = /tmp/
   objectstore.backend = file
   log.level = INFO
-
-You can find example configuration file named SoftHSM2.conf under testdata directory.
 
 Create a token, label it “ForFabric”, set the pin to ‘98765432’
 (refer to SoftHSM documentation).

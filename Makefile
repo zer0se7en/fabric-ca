@@ -10,15 +10,12 @@
 #   - license - check all go files for license headers
 #   - fabric-ca-server - builds the fabric-ca-server executable
 #   - fabric-ca-client - builds the fabric-ca-client executable
+#   - all-tests - runs unit and integration tests
+#   - int-tests - runs the go-test based integration tests
 #   - unit-tests - runs the go-test based unit tests
 #   - checks - runs all check conditions (license, format, imports, lint and vet)
 #   - docker[-clean] - builds/cleans the fabric-ca docker image
 #   - docker-fvt[-clean] - builds/cleans the fabric-ca functional verification testing image
-#   - bench - Runs benchmarks in all the packages and stores the results in /tmp/bench.results
-#   - bench-cpu - Runs the benchmarks in the specified package with cpu profiling
-#   - bench-mem - Runs the benchmarks in the specified package with memory profiling
-#   - bench-clean - Removes all benchmark related files
-#   - benchcmp - Compares benchmarks results of current and previous release
 #   - release - builds fabric-ca-client binary for the host platform. Binary built with this target will not support pkcs11
 #   - release-all - builds fabric-ca-client binary for all target platforms. Binaries built with this target will not support pkcs11
 #   - dist - builds release package for the host platform
@@ -51,11 +48,7 @@ PROJECT_VERSION=$(BASE_VERSION)
 FABRIC_TAG ?= $(ARCH)-$(BASE_VERSION)
 endif
 
-ifeq ($(ARCH),s390x)
 PG_VER=11
-else
-PG_VER=11
-endif
 
 PKGNAME = github.com/hyperledger/$(PROJECT_NAME)
 
@@ -69,7 +62,7 @@ export GO_LDFLAGS
 IMAGES = $(PROJECT_NAME)
 FVTIMAGE = $(PROJECT_NAME)-fvt
 
-RELEASE_PLATFORMS = linux-amd64 darwin-amd64 linux-ppc64le linux-s390x windows-amd64
+RELEASE_PLATFORMS = linux-amd64 darwin-amd64 windows-amd64
 RELEASE_PKGS = fabric-ca-client fabric-ca-server
 
 TOOLS = build/tools
@@ -79,22 +72,13 @@ path-map.fabric-ca-server := cmd/fabric-ca-server
 
 include docker-env.mk
 
-all: rename docker unit-tests
+all: docker unit-tests
 
 include gotools.mk
-
-rename: .FORCE
-	@scripts/rename-repo
 
 docker: $(patsubst %,build/image/%/$(DUMMY), $(IMAGES))
 
 docker-fvt: $(patsubst %,build/image/%/$(DUMMY), $(FVTIMAGE))
-
-# should be removed once CI scripts are updated
-docker-all: docker
-
-# should be removed once CI scripts are updated
-docker-fabric-ca: docker
 
 changelog:
 	./scripts/changelog.sh v$(PREV_VERSION) HEAD v$(BASE_VERSION)
@@ -136,11 +120,9 @@ build/image/fabric-ca/$(DUMMY):
 		--build-arg GO_TAGS=pkcs11 \
 		--build-arg GO_LDFLAGS="${DOCKER_GO_LDFLAGS}" \
 		--build-arg ALPINE_VER=${ALPINE_VER} \
-		-t $(BASE_DOCKER_NS)/$(TARGET) .
-	docker tag $(BASE_DOCKER_NS)/$(TARGET) \
-		$(DOCKER_NS)/$(TARGET):$(BASE_VERSION)
-	docker tag $(BASE_DOCKER_NS)/$(TARGET) \
-		$(DOCKER_NS)/$(TARGET):$(DOCKER_TAG)
+		-t $(DOCKER_NS)/$(TARGET) .
+	docker tag $(DOCKER_NS)/$(TARGET) $(DOCKER_NS)/$(TARGET):$(BASE_VERSION)
+	docker tag $(DOCKER_NS)/$(TARGET) $(DOCKER_NS)/$(TARGET):$(DOCKER_TAG)
 	@touch $@
 
 build/image/fabric-ca-fvt/$(DUMMY):
@@ -152,12 +134,13 @@ build/image/fabric-ca-fvt/$(DUMMY):
 		--build-arg GO_TAGS=pkcs11 \
 		--build-arg GO_LDFLAGS="${DOCKER_GO_LDFLAGS}" \
 		--build-arg PG_VER=${PG_VER} \
-		-t $(BASE_DOCKER_NS)/$(TARGET) .
+		-t $(DOCKER_NS)/$(TARGET) .
 	@touch $@
 
 
-all-tests: gotools fabric-ca-server fabric-ca-client
-	@scripts/run_unit_tests
+all-tests: unit-tests int-tests
+
+int-tests: gotools fabric-ca-server fabric-ca-client
 	@scripts/run_integration_tests
 
 unit-tests: gotools fabric-ca-server fabric-ca-client
@@ -165,43 +148,11 @@ unit-tests: gotools fabric-ca-server fabric-ca-client
 
 unit-test: unit-tests
 
-int-tests: gotools fabric-ca-server fabric-ca-client
-	@scripts/run_integration_tests
-
 vendor: .FORCE
 	@echo > go.mod
 	@go mod tidy -modfile vendor.mod
 	@go mod vendor  -modfile vendor.mod
 	@rm go.mod
-
-# Runs benchmarks in all the packages and stores the benchmarks in /tmp/bench.results
-bench: $(TOOLS)/benchcmp fabric-ca-server fabric-ca-client
-	@scripts/run_benchmarks
-
-# Runs benchmarks in the specified package with cpu profiling
-# e.g. make bench-cpu pkg=github.com/hyperledger/fabric-ca/lib
-bench-cpu: $(TOOLS)/benchcmp fabric-ca-server fabric-ca-client
-	@scripts/run_benchmarks -C -P $(pkg)
-
-# Runs benchmarks in the specified package with memory profiling
-# e.g. make bench-mem pkg=github.com/hyperledger/fabric-ca/lib
-bench-mem: $(TOOLS)/benchcmp fabric-ca-server fabric-ca-client
-	@scripts/run_benchmarks -M -P $(pkg)
-
-# e.g. make benchcmp prev_rel=v1.0.0
-benchcmp: $(TOOLS)/benchcmp guard-prev_rel bench
-	@scripts/compare_benchmarks $(prev_rel)
-
-guard-%:
-	@if [ "${${*}}" = "" ]; then \
-		echo "Environment variable $* not set"; \
-		exit 1; \
-	fi
-
-
-# Removes all benchmark related files (bench, bench-cpu, bench-mem and *.test)
-bench-clean: $(TOOLS)/benchcmp
-	@scripts/run_benchmarks -R
 
 container-tests: docker
 
@@ -210,15 +161,12 @@ load-test: docker-clean docker-fvt
 	@test/fabric-ca-load-tester/runLoad.sh -B
 	@docker kill loadTest
 
-ci-tests: all-tests docs fvt-tests
-
 fvt-tests: docker-clean docker-fvt
 	@docker run -v $(shell pwd):/opt/gopath/src/github.com/hyperledger/fabric-ca ${DOCKER_NS}/fabric-ca-fvt
 
 %-docker-clean:
 	$(eval TARGET = ${patsubst %-docker-clean,%,${@}})
 	-docker images -q $(DOCKER_NS)/$(TARGET):latest | xargs -I '{}' docker rmi -f '{}'
-	-docker images -q $(NEXUS_URL)/*:$(STABLE_TAG) | xargs -I '{}' docker rmi -f '{}'
 	-@rm -rf build/image/$(TARGET) ||:
 
 docker-clean: $(patsubst %,%-docker-clean, $(IMAGES) $(PROJECT_NAME)-fvt)
@@ -243,13 +191,6 @@ release/linux-amd64: $(patsubst %,release/linux-amd64/bin/%, $(RELEASE_PKGS))
 release/%-amd64: GOARCH=amd64
 
 release/linux-%: GOOS=linux
-
-release/linux-ppc64le: GOARCH=ppc64le
-release/linux-ppc64le: CC=/usr/bin/powerpc64le-linux-gnu-gcc
-release/linux-ppc64le: $(patsubst %,release/linux-ppc64le/bin/%, $(RELEASE_PKGS))
-
-release/linux-s390x: GOARCH=s390x
-release/linux-s390x: $(patsubst %,release/linux-s390x/bin/%, $(RELEASE_PKGS))
 
 release/%/bin/fabric-ca-client: GO_TAGS+= caclient
 release/%/bin/fabric-ca-client: $(GO_SOURCE)
@@ -281,10 +222,6 @@ dist/darwin-amd64:
 	cd release/darwin-amd64 && tar -czvf hyperledger-fabric-ca-darwin-amd64-$(PROJECT_VERSION).tar.gz *
 dist/linux-amd64:
 	cd release/linux-amd64 && tar -czvf hyperledger-fabric-ca-linux-amd64-$(PROJECT_VERSION).tar.gz *
-dist/linux-ppc64le:
-	cd release/linux-ppc64le && tar -czvf hyperledger-fabric-ca-linux-ppc64le-$(PROJECT_VERSION).tar.gz *
-dist/linux-s390x:
-	cd release/linux-s390x && tar -czvf hyperledger-fabric-ca-linux-s390x-$(PROJECT_VERSION).tar.gz *
 
 .PHONY: clean
 clean: docker-clean release-clean
@@ -303,7 +240,5 @@ dist-clean:
 	-@rm -rf release/windows-amd64/hyperledger-fabric-ca-windows-amd64-$(PROJECT_VERSION).tar.gz ||:
 	-@rm -rf release/darwin-amd64/hyperledger-fabric-ca-darwin-amd64-$(PROJECT_VERSION).tar.gz ||:
 	-@rm -rf release/linux-amd64/hyperledger-fabric-ca-linux-amd64-$(PROJECT_VERSION).tar.gz ||:
-	-@rm -rf release/linux-ppc64le/hyperledger-fabric-ca-linux-ppc64le-$(PROJECT_VERSION).tar.gz ||:
-	-@rm -rf release/linux-s390x/hyperledger-fabric-ca-linux-s390x-$(PROJECT_VERSION).tar.gz ||:
 
 .FORCE:

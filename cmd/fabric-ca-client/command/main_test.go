@@ -28,7 +28,8 @@ import (
 
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/cloudflare/cfssl/log"
-	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/internal/pkg/api"
+	"github.com/hyperledger/fabric-ca/internal/pkg/util"
 	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/lib/attr"
 	"github.com/hyperledger/fabric-ca/lib/attrmgr"
@@ -36,7 +37,6 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/server/db"
 	"github.com/hyperledger/fabric-ca/lib/server/db/sqlite"
 	cadbuser "github.com/hyperledger/fabric-ca/lib/server/user"
-	"github.com/hyperledger/fabric-ca/util"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -2558,7 +2558,7 @@ func setupGenCSRTest(t *testing.T, adminHome string) *lib.Server {
 
 	srv := lib.TestGetServer(serverPort, srvHome, "", -1, t)
 	srv.Config.Debug = true
-	srv.CA.Config.CSR.KeyRequest = &api.BasicKeyRequest{Algo: "ecdsa", Size: 384}
+	srv.CA.Config.CSR.KeyRequest = &api.KeyRequest{Algo: "ecdsa", Size: 384}
 
 	adminName := "admin"
 	adminPass := "adminpw"
