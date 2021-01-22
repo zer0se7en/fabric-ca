@@ -4,20 +4,20 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-FABRIC_CA=$GOPATH/src/github.com/hyperledger/fabric-ca
+FABRIC_CA="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPTDIR="$FABRIC_CA/scripts/fvt"
-. $SCRIPTDIR/fabric-ca_utils
+. "$SCRIPTDIR/fabric-ca_utils"
 export RESULTLOG="/tmp/fvt-test.results"
 export STARTIME=$SECONDS
-export PATH=$PATH:$GOPATH/bin
+export PATH="$PATH:$FABRIC_CA/build/tools"
 export RC=0
->$RESULTLOG
+true >$RESULTLOG
 
 function runTests() {
   echo "Running fvt tests ..."
   echo ""
 
-  tests="$(find $SCRIPTDIR -maxdepth 1 -name "*test.*sh"| sort)"
+  tests="$(find "$SCRIPTDIR" -maxdepth 1 -name "*test.*sh"| sort)"
   for cmd in $tests; do
     runTest "${cmd}"
   done
@@ -26,13 +26,13 @@ function runTests() {
 function runTest() {
   export TESTCASE="${1##*/}"
   echo "*******************" | tee -a $RESULTLOG 2>&1
-  printf " Running $TESTCASE " | tee -a $RESULTLOG 2>&1
+  echo -n " Running $TESTCASE " | tee -a $RESULTLOG 2>&1
   ${1} >>$RESULTLOG 2>&1
   rc=$?
   test $rc -eq 0 && echo PASSED || echo FAILED
-  test $rc -ne 0 && awk -v b=$TESTCASE -v e="test ended." '$0~b,$0~e' $RESULTLOG
-  RC=$((RC + $rc))
-  $SCRIPTDIR/fabric-ca_setup.sh -R >/dev/null 2>&1
+  test $rc -ne 0 && awk -v b="$TESTCASE" -v e="test ended." '$0~b,$0~e' $RESULTLOG
+  RC=$((RC + rc))
+  "$SCRIPTDIR/fabric-ca_setup.sh" -R >/dev/null 2>&1
 }
 
 TimeStamp | tee $RESULTLOG

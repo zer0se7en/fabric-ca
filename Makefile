@@ -54,7 +54,7 @@ PKGNAME = github.com/hyperledger/$(PROJECT_NAME)
 
 METADATA_VAR = Version=$(PROJECT_VERSION)
 
-GO_VER = 1.14.4
+GO_VER = 1.15.5
 GO_SOURCE := $(shell find . -name '*.go')
 GO_LDFLAGS = $(patsubst %,-X $(PKGNAME)/lib/metadata.%,$(METADATA_VAR))
 export GO_LDFLAGS
@@ -81,7 +81,7 @@ docker: $(patsubst %,build/image/%/$(DUMMY), $(IMAGES))
 docker-fvt: $(patsubst %,build/image/%/$(DUMMY), $(FVTIMAGE))
 
 changelog:
-	./scripts/changelog.sh v$(PREV_VERSION) HEAD v$(BASE_VERSION)
+	./scripts/changelog.sh v$(PREV_VERSION) v$(BASE_VERSION)
 
 checks: license vet lint format imports
 
@@ -149,20 +149,13 @@ unit-tests: gotools fabric-ca-server fabric-ca-client
 unit-test: unit-tests
 
 vendor: .FORCE
-	@echo > go.mod
-	@go mod tidy -modfile vendor.mod
-	@go mod vendor  -modfile vendor.mod
-	@rm go.mod
+	@go mod tidy
+	@go mod vendor
 
 container-tests: docker
 
-load-test: docker-clean docker-fvt
-	@docker run -p 8888:8888 -p 8054:8054 -v $(shell pwd):/opt/gopath/src/github.com/hyperledger/fabric-ca -e FABRIC_CA_SERVER_PROFILE_PORT=8054 --name loadTest -td hyperledger/fabric-ca-fvt test/fabric-ca-load-tester/launchServer.sh 3
-	@test/fabric-ca-load-tester/runLoad.sh -B
-	@docker kill loadTest
-
 fvt-tests: docker-clean docker-fvt
-	@docker run -v $(shell pwd):/opt/gopath/src/github.com/hyperledger/fabric-ca ${DOCKER_NS}/fabric-ca-fvt
+	@docker run -v $(shell pwd):/build/fabric-ca ${DOCKER_NS}/fabric-ca-fvt
 
 %-docker-clean:
 	$(eval TARGET = ${patsubst %-docker-clean,%,${@}})

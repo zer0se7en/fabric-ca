@@ -27,7 +27,6 @@ import (
 
 const (
 	longName     = "Hyperledger Fabric Certificate Authority Client"
-	shortName    = "fabric-ca client"
 	cmdName      = "fabric-ca-client"
 	envVarPrefix = "FABRIC_CA_CLIENT"
 	homeEnvVar   = "FABRIC_CA_CLIENT_HOME"
@@ -106,6 +105,11 @@ tls:
 #
 #  cn - Used by CAs to determine which domain the certificate is to be generated for
 #
+#  keyrequest - Properties to use when generating a private key.
+#     algo - key generation algorithm to use
+#     size - size of key to generate
+#     reusekey - reuse existing key during reenrollment
+#
 #  serialnumber - The serialnumber field, if specified, becomes part of the issued
 #     certificate's DN (Distinguished Name).  For example, one use case for this is
 #     a company with its own CA (Certificate Authority) which issues certificates
@@ -139,6 +143,7 @@ csr:
   keyrequest:
     algo: ecdsa
     size: 256
+    reusekey: false
   serialnumber:
   names:
     - C: US

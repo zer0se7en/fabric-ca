@@ -393,10 +393,7 @@ func (u *Impl) Revoke() error {
 
 // IsRevoked returns back true if user is revoked
 func (u *Impl) IsRevoked() bool {
-	if u.State == -1 {
-		return true
-	}
-	return false
+	return u.State == -1
 }
 
 // ModifyAttributesTx adds a new attribute, modifies existing attribute, or delete attribute
@@ -512,23 +509,24 @@ func (u *Impl) GetFailedLoginAttempts() int {
 
 // Migrate will migrate the user to the latest version
 func (u *Impl) Migrate(tx userDB) error {
-	currentLevel := u.GetLevel()
-	if currentLevel < 1 {
+	switch u.GetLevel() {
+	case 0:
 		err := u.migrateUserToLevel1(tx)
 		if err != nil {
 			return err
 		}
-		currentLevel++
-	}
+		fallthrough
 
-	if currentLevel < 2 {
+	case 1:
 		err := u.migrateUserToLevel2(tx)
 		if err != nil {
 			return err
 		}
-		currentLevel++
+		fallthrough
+
+	default:
+		return nil
 	}
-	return nil
 }
 
 func (u *Impl) migrateUserToLevel1(tx userDB) error {

@@ -5,21 +5,20 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-FABRIC_CA="$GOPATH/src/github.com/hyperledger/fabric-ca"
-SCRIPTDIR="$FABRIC_CA/scripts/fvt"
-. $SCRIPTDIR/fabric-ca_utils
+SCRIPTDIR="$(cd "$(dirname "$0")" && pwd)"
+. "$SCRIPTDIR/fabric-ca_utils"
 PKI="$SCRIPTDIR/utils/pki"
 CERT_HOME="/tmp/CAs/"
 REGISTRAR="admin"
 REGISTRARPWD="adminpw"
 RC=0
 
-curr_year=$(date +"%g")
+curr_year=$(date +"%y")
 prev_year=$((curr_year-1))
 next_year=$((curr_year+1))
 
 past=$(date +"$prev_year%m%d%H%M%SZ")
-now=$(date +"%g%m%d%H%M%SZ")
+now=$(date +"%y%m%d%H%M%SZ")
 future=$(date +"$next_year%m%d%H%M%SZ")
 
 NUM_SERVERS=4

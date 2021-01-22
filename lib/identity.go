@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/client/credential"
 	"github.com/hyperledger/fabric-ca/lib/client/credential/idemix"
 	"github.com/hyperledger/fabric-ca/lib/client/credential/x509"
+	"github.com/hyperledger/fabric/bccsp"
 	"github.com/pkg/errors"
 )
 
@@ -130,9 +131,30 @@ func (i *Identity) RegisterAndEnroll(req *api.RegistrationRequest) (*Identity, e
 func (i *Identity) Reenroll(req *api.ReenrollmentRequest) (*EnrollmentResponse, error) {
 	log.Debugf("Reenrolling %s", util.StructToString(req))
 
-	csrPEM, key, err := i.client.GenCSR(req.CSR, i.GetName())
-	if err != nil {
-		return nil, err
+	var (
+		key    bccsp.Key
+		csrPEM []byte
+		err    error
+	)
+	if req.CSR != nil && req.CSR.KeyRequest != nil {
+		if req.CSR.KeyRequest.ReuseKey {
+			val, err := i.GetX509Credential().Val()
+			if err != nil {
+				return nil, err
+			}
+			key = val.(*x509.Signer).Key()
+			csrPEM, key, err = i.client.GenCSRUsingKey(req.CSR, i.GetName(), key)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	if csrPEM == nil {
+		csrPEM, key, err = i.client.GenCSR(req.CSR, i.GetName())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	reqNet := &api.ReenrollmentRequestNet{
@@ -481,11 +503,9 @@ func (i *Identity) GetStreamResponse(endpoint string, queryParam map[string]stri
 	if err != nil {
 		return err
 	}
-	if queryParam != nil {
-		for key, value := range queryParam {
-			if value != "" {
-				addQueryParm(req, key, value)
-			}
+	for key, value := range queryParam {
+		if value != "" {
+			addQueryParm(req, key, value)
 		}
 	}
 	err = i.addTokenAuthHdr(req, nil)
@@ -501,10 +521,8 @@ func (i *Identity) Put(endpoint string, reqBody []byte, queryParam map[string]st
 	if err != nil {
 		return err
 	}
-	if queryParam != nil {
-		for key, value := range queryParam {
-			addQueryParm(req, key, value)
-		}
+	for key, value := range queryParam {
+		addQueryParm(req, key, value)
 	}
 	err = i.addTokenAuthHdr(req, reqBody)
 	if err != nil {
@@ -519,10 +537,8 @@ func (i *Identity) Delete(endpoint string, result interface{}, queryParam map[st
 	if err != nil {
 		return err
 	}
-	if queryParam != nil {
-		for key, value := range queryParam {
-			addQueryParm(req, key, value)
-		}
+	for key, value := range queryParam {
+		addQueryParm(req, key, value)
 	}
 	err = i.addTokenAuthHdr(req, nil)
 	if err != nil {
@@ -540,10 +556,8 @@ func (i *Identity) Post(endpoint string, reqBody []byte, result interface{}, que
 	if err != nil {
 		return err
 	}
-	if queryParam != nil {
-		for key, value := range queryParam {
-			addQueryParm(req, key, value)
-		}
+	for key, value := range queryParam {
+		addQueryParm(req, key, value)
 	}
 	err = i.addTokenAuthHdr(req, reqBody)
 	if err != nil {
@@ -554,14 +568,13 @@ func (i *Identity) Post(endpoint string, reqBody []byte, result interface{}, que
 
 func (i *Identity) addTokenAuthHdr(req *http.Request, body []byte) error {
 	log.Debug("Adding token-based authorization header")
-	var token string
-	var err error
-	for _, cred := range i.creds {
-		token, err = cred.CreateToken(req, body)
-		if err != nil {
-			return errors.WithMessage(err, "Failed to add token authorization header")
-		}
-		break
+	if len(i.creds) == 0 {
+		return nil
+	}
+	cred := i.creds[0]
+	token, err := cred.CreateToken(req, body)
+	if err != nil {
+		return errors.WithMessage(err, "Failed to add token authorization header")
 	}
 	req.Header.Set("authorization", token)
 	return nil

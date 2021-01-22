@@ -225,8 +225,14 @@ func TestSRVRootServer(t *testing.T) {
 	cert := user1.GetECert().GetX509Cert()
 	assert.NotNil(t, cert, "Failed to get user1's enrollment certificate")
 
-	ouPath := strings.Join(cert.Subject.OrganizationalUnit, ".")
-	assert.Equal(t, "user.hyperledger.fabric.security", ouPath, "Invalid OU path in certificate")
+	assert.Contains(
+		t,
+		cert.Subject.OrganizationalUnit,
+		"user",
+		"hyperledger",
+		"fabric",
+		"security",
+	)
 
 	// The admin ID should have 1 cert in the DB now
 	dba := server.CA.CertDBAccessor()
@@ -2150,7 +2156,7 @@ func TestCSRInputLengthCheck(t *testing.T) {
 		Secret: "pass",
 		CSR:    badCSR,
 	})
-	if assert.Error(t, err, fmt.Sprint("Number of characters for CN is greater than the maximum limit, should have resulted in an error")) {
+	if assert.Error(t, err, "Number of characters for CN is greater than the maximum limit, should have resulted in an error") {
 		assert.Contains(t, err.Error(), "CN")
 	}
 
@@ -2433,23 +2439,6 @@ func cleanMultiCADir(t *testing.T) {
 	}
 }
 
-func getRootServerURL() string {
-	return fmt.Sprintf("http://admin:adminpw@localhost:%d", rootPort)
-}
-
-func getRootServer(t *testing.T) *Server {
-	return getServer(rootPort, rootDir, "", -1, t)
-}
-
-func getIntermediateServer(idx int, t *testing.T) *Server {
-	return getServer(
-		intermediatePort,
-		path.Join(intermediateDir, strconv.Itoa(idx)),
-		getRootServerURL(),
-		-1,
-		t)
-}
-
 func getServer(port int, home, parentURL string, maxEnroll int, t *testing.T) *Server {
 	if home != testdataDir {
 		err := os.RemoveAll(home)
@@ -2505,10 +2494,6 @@ func getServer(port int, home, parentURL string, maxEnroll int, t *testing.T) *S
 
 func getRootClient() *Client {
 	return getTestClient(rootPort)
-}
-
-func getIntermediateClient() *Client {
-	return getTestClient(intermediatePort)
 }
 
 func getTestClient(port int) *Client {

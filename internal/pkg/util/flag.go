@@ -1,17 +1,7 @@
 /*
-Copyright IBM Corp. 2017 All Rights Reserved.
+Copyright IBM Corp. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-                 http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+SPDX-License-Identifier: Apache-2.0
 */
 
 package util
@@ -20,14 +10,11 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/cloudflare/cfssl/log"
-	"github.com/mitchellh/mapstructure"
 	logging "github.com/op/go-logging"
 	"github.com/pkg/errors"
-	"github.com/spf13/cast"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -207,49 +194,4 @@ func bindFlag(v *viper.Viper, flags *pflag.FlagSet, name string) {
 		panic(fmt.Errorf("failed to lookup '%s'", name))
 	}
 	v.BindPFlag(name, flag)
-}
-
-// ViperUnmarshal is a work around for a bug in viper.Unmarshal
-// This can be removed once https://github.com/spf13/viper/issues/327 is fixed
-// and vendored.
-func ViperUnmarshal(cfg interface{}, stringSliceFields []string, vp *viper.Viper) error {
-	decoderConfig := &mapstructure.DecoderConfig{
-		Metadata:         nil,
-		Result:           cfg,
-		WeaklyTypedInput: true,
-		DecodeHook:       mapstructure.StringToTimeDurationHookFunc(),
-	}
-	decoder, err := mapstructure.NewDecoder(decoderConfig)
-	if err != nil {
-		return errors.Wrap(err, "Failed to create decoder")
-	}
-	settings := vp.AllSettings()
-	for _, field := range stringSliceFields {
-		var ok bool
-		path := strings.Split(field, ".")
-		m := settings
-		name := path[0]
-		// If it is a top level option check to see if nil before continuing
-		if _, ok = m[name]; !ok {
-			continue
-		}
-
-		if len(path) > 1 {
-			for _, field2 := range path[1:] {
-				m = m[name].(map[string]interface{})
-				name = field2
-
-				// Inspect nested options to see if nil before proceeding with loop
-				if _, ok = m[name]; !ok {
-					break
-				}
-			}
-		}
-		// Only do casting if path was valid
-		if ok {
-			m[name] = cast.ToStringSlice(m[name])
-		}
-	}
-
-	return decoder.Decode(settings)
 }

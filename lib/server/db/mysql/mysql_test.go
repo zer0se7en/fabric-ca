@@ -82,19 +82,38 @@ var _ = Describe("Mysql", func() {
 	})
 
 	Context("creating fabric ca database", func() {
-		It("returns an error if unable execute create fabric ca database sql", func() {
-			mockDB.ExecReturns(nil, errors.New("error creating database"))
-			db.SqlxDB = mockDB
-			_, err := db.CreateDatabase()
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).Should(ContainSubstring("Failed to create MySQL database: Failed to execute create database query: error creating database"))
+		When("creating the Fabric CA database fails", func() {
+			It("returns an error", func() {
+				mockDB.ExecReturns(nil, errors.New("error creating database"))
+				db.SqlxDB = mockDB
+				_, err := db.CreateDatabase()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("Failed to create MySQL database: Failed to execute create database query: error creating database"))
+			})
 		})
 
-		It("creates the fabric ca database", func() {
-			db.SqlxDB = mockDB
+		When("the database does not exist", func() {
+			It("creates the fabric ca database", func() {
+				db.SqlxDB = mockDB
+				sqlxDB, err := db.CreateDatabase()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(db.SqlxDB).To(Equal(sqlxDB))
+				Expect(mockDB.ExecCallCount()).To(Equal(1))
+			})
+		})
 
-			_, err := db.CreateDatabase()
-			Expect(err).NotTo(HaveOccurred())
+		When("the database already exists", func() {
+			It("does not attempt to create the database", func() {
+				mockDB.GetStub = func(s string, i interface{}, s2 string, i2 ...interface{}) error {
+					*(i.(*bool)) = true
+					return nil
+				}
+				db.SqlxDB = mockDB
+				sqlxDB, err := db.CreateDatabase()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(db.SqlxDB).To(Equal(sqlxDB))
+				Expect(mockDB.ExecCallCount()).To(Equal(0))
+			})
 		})
 	})
 

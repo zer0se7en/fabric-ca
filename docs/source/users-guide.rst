@@ -87,7 +87,7 @@ via the Hyperledger Fabric CA client or through one of the Fabric SDKs.
 All communication to the Hyperledger Fabric CA server is via REST APIs.
 See `fabric-ca/swagger/swagger-fabric-ca.json` for the swagger documentation
 for these REST APIs.
-You may view this documentation via the http://editor2.swagger.io online editor.
+You may view this documentation via the `Swagger online editor <http://editor.swagger.io>`_. 
 
 The Hyperledger Fabric CA client or SDK may connect to a server in a cluster
 of Hyperledger Fabric CA servers.   This is illustrated in the top right section
@@ -299,7 +299,7 @@ file, we can use a command line flag.
   fabric-ca-client enroll --tls.client.certfile cert3.pem
 
 The same approach applies to fabric-ca-server, except instead of using
-``FABIRC_CA_CLIENT`` as the prefix to environment variables,
+``FABRIC_CA_CLIENT`` as the prefix to environment variables,
 ``FABRIC_CA_SERVER`` is used.
 
 .. _server:
@@ -1647,7 +1647,7 @@ The following are the supported reasons that can be specified using ``-r`` flag:
   1. unspecified
   2. keycompromise
   3. cacompromise
-  4. affiliationchange
+  4. affiliationchanged
   5. superseded
   6. cessationofoperation
   7. certificatehold

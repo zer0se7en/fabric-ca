@@ -1,52 +1,23 @@
 /*
-Copyright IBM Corp. 2017 All Rights Reserved.
+Copyright IBM Corp. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-                 http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+SPDX-License-Identifier: Apache-2.0
 */
 
-package util_test
+package util
 
 import (
 	"os"
 	"testing"
 
-	"github.com/hyperledger/fabric-ca/internal/pkg/util"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetCommandLineOptValue(t *testing.T) {
 	testGetCommandLineOptValue(t,
-		[]string{"fabric-ca", "client", "enroll", "-config", "myconfig.json"},
-		"-config",
-		true,
-		"myconfig.json",
-		[]string{"fabric-ca", "client", "enroll"})
-	testGetCommandLineOptValue(t,
 		[]string{"fabric-ca", "client", "-config", "myconfig.json", "enroll"},
 		"-config",
-		true,
 		"myconfig.json",
-		[]string{"fabric-ca", "client", "enroll"})
-	testGetCommandLineOptValue(t,
-		[]string{"fabric-ca", "client", "-config", "myconfig.json", "enroll"},
-		"-config",
-		false,
-		"myconfig.json",
-		[]string{"fabric-ca", "client", "-config", "myconfig.json", "enroll"})
-	testGetCommandLineOptValue(t,
-		[]string{"fabric-ca", "client", "-config", "myconfig.json", "enroll"},
-		"-config2",
-		true,
-		"",
 		[]string{"fabric-ca", "client", "-config", "myconfig.json", "enroll"})
 }
 
@@ -68,29 +39,26 @@ func TestOpts(t *testing.T) {
 	testOpt(t, "-port", "", "7054")
 }
 
-func testGetCommandLineOptValue(t *testing.T,
-	args []string, opt string, remove bool, expectedVal string, expectedArgs []string) {
+func testGetCommandLineOptValue(t *testing.T, args []string, opt string, expectedVal string, expectedArgs []string) {
+	defer func(args []string) { os.Args = args }(os.Args)
 
-	saveArgs := os.Args
 	os.Args = args
-	val := util.GetCommandLineOptValue(opt, remove)
-	if val != expectedVal {
-		t.Errorf("val was '%s' but expected '%s'", val, expectedVal)
-	}
-	compareArgs(t, os.Args, expectedArgs)
-	os.Args = saveArgs
+	val := getCommandLineOptValue(opt)
+	assert.Equal(t, expectedVal, val)
+	assert.Equal(t, expectedArgs, os.Args)
 }
 
 func testSetDefaultServerPort(t *testing.T, inputArgs []string, expectedOutputArgs []string) {
-	saveArgs := os.Args
+	defer func(args []string) { os.Args = args }(os.Args)
+
 	os.Args = inputArgs
-	util.SetDefaultServerPort()
-	compareArgs(t, os.Args, expectedOutputArgs)
-	os.Args = saveArgs
+	setDefaultServerPort()
+	assert.Equal(t, expectedOutputArgs, os.Args)
 }
 
 func testOpt(t *testing.T, opt, val, expectedVal string) {
-	saveArgs := os.Args
+	defer func(args []string) { os.Args = args }(os.Args)
+
 	if val != "" {
 		os.Args = []string{"fabric-ca", "client", "enroll", opt, val}
 	} else {
@@ -98,30 +66,13 @@ func testOpt(t *testing.T, opt, val, expectedVal string) {
 	}
 	switch opt {
 	case "-protocol":
-		val = util.GetServerProtocol()
+		val = getServerProtocol()
 	case "-address":
-		val = util.GetServerAddr()
+		val = getServerAddr()
 	case "-port":
-		val = util.GetServerPort()
+		val = GetServerPort()
 	default:
 		panic("bad opt value")
 	}
-	if val != expectedVal {
-		t.Errorf("val was '%s' but expected '%s' for option '%s'", val, expectedVal, opt)
-	}
-	os.Args = saveArgs
-}
-
-func compareArgs(t *testing.T, args, expectedArgs []string) {
-	if len(args) == len(expectedArgs) {
-		for i, arg := range args {
-			if arg != expectedArgs[i] {
-				t.Errorf("args were '%+v' but expected '%+v'", args, expectedArgs)
-				return
-			}
-		}
-	} else {
-		t.Errorf("args were '%+v' but expected '%+v'", args, expectedArgs)
-	}
-
+	assert.Equal(t, expectedVal, val, "unexpected value for option '%s'", opt)
 }

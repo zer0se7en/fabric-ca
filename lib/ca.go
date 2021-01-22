@@ -765,22 +765,22 @@ func (ca *CA) loadAffiliationsTableR(val interface{}, parentPath string) (err er
 	if val == nil {
 		return nil
 	}
-	switch val.(type) {
+	switch val := val.(type) {
 	case string:
-		path = affiliationPath(val.(string), parentPath)
+		path = affiliationPath(val, parentPath)
 		err = ca.addAffiliation(path, parentPath)
 		if err != nil {
 			return err
 		}
 	case []string:
-		for _, ele := range val.([]string) {
+		for _, ele := range val {
 			err = ca.loadAffiliationsTableR(ele, parentPath)
 			if err != nil {
 				return err
 			}
 		}
 	case []interface{}:
-		for _, ele := range val.([]interface{}) {
+		for _, ele := range val {
 			err = ca.loadAffiliationsTableR(ele, parentPath)
 			if err != nil {
 				return err
@@ -1035,22 +1035,24 @@ func (ca *CA) validateCertAndKey(certFile string, keyFile string) error {
 }
 
 // Returns expiration of the CA certificate
-func (ca *CA) getCACertExpiry() (time.Time, error) {
-	var caexpiry time.Time
+func (ca *CA) getCACertExpiry() (time.Time, time.Time, error) {
+	var notAfter time.Time
+	var notBefore time.Time
 	signer, ok := ca.enrollSigner.(*cflocalsigner.Signer)
 	if ok {
 		cacert, err := signer.Certificate("", "ca")
 		if err != nil {
 			log.Errorf("Failed to get CA certificate for CA %s: %s", ca.Config.CA.Name, err)
-			return caexpiry, err
+			return notBefore, notAfter, err
 		} else if cacert != nil {
-			caexpiry = cacert.NotAfter
+			notAfter = cacert.NotAfter
+			notBefore = cacert.NotBefore
 		}
 	} else {
 		log.Errorf("Not expected condition as the enrollSigner can only be cfssl/signer/local/Signer")
-		return caexpiry, errors.New("Unexpected error while getting CA certificate expiration")
+		return notBefore, notAfter, errors.New("Unexpected error while getting CA certificate expiration")
 	}
-	return caexpiry, nil
+	return notBefore, notAfter, nil
 }
 
 func canSignCRL(cert *x509.Certificate) bool {
@@ -1136,14 +1138,14 @@ func validateMatchingKeys(cert *x509.Certificate, keyFile string) error {
 	}
 
 	pubKey := cert.PublicKey
-	switch pubKey.(type) {
+	switch pubKey := pubKey.(type) {
 	case *rsa.PublicKey:
 		privKey, err := util.GetRSAPrivateKey(keyPEM)
 		if err != nil {
 			return err
 		}
 
-		if privKey.PublicKey.N.Cmp(pubKey.(*rsa.PublicKey).N) != 0 {
+		if privKey.PublicKey.N.Cmp(pubKey.N) != 0 {
 			return errors.New("Public key and private key do not match")
 		}
 	case *ecdsa.PublicKey:
@@ -1152,7 +1154,7 @@ func validateMatchingKeys(cert *x509.Certificate, keyFile string) error {
 			return err
 		}
 
-		if privKey.PublicKey.X.Cmp(pubKey.(*ecdsa.PublicKey).X) != 0 {
+		if privKey.PublicKey.X.Cmp(pubKey.X) != 0 {
 			return errors.New("Public key and private key do not match")
 		}
 	}
@@ -1255,12 +1257,6 @@ func initSigningProfile(spp **config.SigningProfile, expiry time.Duration, isCA 
 	}
 	// This is set so that all profiles permit an attribute extension in CFSSL
 	sp.ExtensionWhitelist[attrmgr.AttrOIDString] = true
-}
-
-type wallClock struct{}
-
-func (wc wallClock) Now() time.Time {
-	return time.Now()
 }
 
 func getMigrator(driverName string, tx cadb.FabricCATx, curLevels, srvLevels *dbutil.Levels) (cadb.Migrator, error) {

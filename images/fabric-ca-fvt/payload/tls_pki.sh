@@ -1,18 +1,17 @@
 #!/bin/bash
-FABRIC_CA="$GOPATH/src/github.com/hyperledger/fabric-ca"
 SCRIPTDIR="/etc/hyperledger/fabric-ca"
 export HOME=$SCRIPTDIR
 PKI="$SCRIPTDIR/pki"
-. $SCRIPTDIR/fabric-ca_utils
+. "$SCRIPTDIR/fabric-ca_utils"
 CaDir='/tmp/CAs'
 RC=0
 
-curr_year=$(date +"%g")
+curr_year=$(date +"%y")
 ten=$((curr_year+10))
 five=$((curr_year+5))
 two=$((curr_year+2))
 
-now=$(date +"%g%m%d%H%M%SZ")
+now=$(date +"%y%m%d%H%M%SZ")
 ten_year=$(date +"$ten%m%d%H%M%SZ")
 five_year=$(date +"$five%m%d%H%M%SZ")
 two_year=$(date +"$two%m%d%H%M%SZ")

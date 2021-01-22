@@ -36,8 +36,6 @@ const (
 	testTLSClientAuthDir = "testTLSClientAuthDir"
 )
 
-var clientConfig = path.Join(testdataDir, "client-config.json")
-
 func TestCWBClient1(t *testing.T) {
 	server := getServer(whitePort, path.Join(serversDir, "c1"), "", 1, t)
 	if server == nil {
@@ -77,6 +75,7 @@ func TestCWBTLSClientAuth(t *testing.T) {
 		return
 	}
 	server.CA.Config.CSR.CN = "localhost"
+	server.Config.CAcfg.CSR.Hosts = []string{"localhost"}
 	err := server.Start()
 	if err != nil {
 		t.Fatalf("Failed to start server: %s", err)
@@ -132,7 +131,7 @@ func TestCWBTLSClientAuth(t *testing.T) {
 	// Start server
 	log.Debug("Starting the server with TLS")
 	server.Config.TLS.Enabled = true
-	server.Config.TLS.CertFile = "ca-cert.pem"
+	server.Config.TLS.CertFile = "tls-cert.pem"
 	err = server.Start()
 	if err != nil {
 		t.Fatalf("Failed to start server with HTTPS: %s", err)
@@ -157,6 +156,7 @@ func TestCWBTLSClientAuth(t *testing.T) {
 	client.Config.TLS.CertFiles = []string{"../server/ca-cert.pem"}
 	// Reinialize the http client with updated config and re-enroll over HTTPS
 	err = client.initHTTPClient()
+	assert.NoError(t, err)
 	resp, err := id.Reenroll(&api.ReenrollmentRequest{})
 	if err != nil {
 		server.Stop()
@@ -197,6 +197,7 @@ func TestCWBTLSClientAuth(t *testing.T) {
 	client.Config.TLS.Client.CertFile = path.Join("msp", "signcerts", "cert.pem")
 	// Reinialize the http client with updated config and re-enroll over HTTPS with client auth
 	err = client.initHTTPClient()
+	assert.NoError(t, err)
 	_, err = id.Reenroll(&api.ReenrollmentRequest{})
 	if err != nil {
 		t.Errorf("Client reenroll with client auth failed: %s", err)
@@ -554,7 +555,7 @@ func TestCWBNewCertificateRequest(t *testing.T) {
 		Hosts:      []string{},
 		KeyRequest: api.NewKeyRequest(),
 	}
-	if c.newCertificateRequest(req) == nil {
+	if c.newCertificateRequest(req, "fake-id") == nil {
 		t.Error("newCertificateRequest failed")
 	}
 }

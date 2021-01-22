@@ -40,7 +40,6 @@ const (
 	badUsageCert          = "../testdata/tls_client-cert.pem"
 	badUsageKey           = "../testdata/tls_client-key.pem"
 	noUsageCert           = "../testdata/noKeyUsage.cert.pem"
-	noUsageKey            = "../testdata/noKeyUsage.key.pem"
 	noCACert              = "../testdata/caFalse.cert.pem"
 	noCAkey               = "../testdata/caFalse.key.pem"
 	caCert                = "ca-cert.pem"
@@ -105,7 +104,7 @@ func TestCABadCACertificates(t *testing.T) {
 	testValidDates(cert, t)
 	testValidKeyType(cert, t)
 	testValidKeySize(cert, t)
-	testValidMatchingKeys(cert, t)
+	testValidMatchingKeys(t)
 	testValidUsages(cert, t)
 	CAclean(ca, t)
 }
@@ -182,10 +181,10 @@ func testValidKeySize(cert *x509.Certificate, t *testing.T) {
 	}
 }
 
-func testValidMatchingKeys(cert *x509.Certificate, t *testing.T) {
+func testValidMatchingKeys(t *testing.T) {
 	err := GenerateECDSATestCert()
 	util.FatalError(t, err, "Failed to generate certificate for testing")
-	cert, err = getCertFromFile(ecCert)
+	cert, err := getCertFromFile(ecCert)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,7 +216,7 @@ func testValidMatchingKeys(cert *x509.Certificate, t *testing.T) {
 		t.Error("Should have failed, public key and private key do not match")
 	}
 
-	err = validateMatchingKeys(cert, string(0))
+	err = validateMatchingKeys(cert, "/does-not-exist")
 	t.Log("validateMatchingKeys Error: ", err)
 	if err == nil {
 		t.Error("Should have failed to read bad file")
@@ -290,21 +289,14 @@ func TestCAParseDuration(t *testing.T) {
 }
 
 func TestCAwriteFile(t *testing.T) {
-	err := writeFile("/"+string(0)+"/", make([]byte, 1), 0777)
-	t.Log("writeFile err: ", err)
-	if err == nil {
-		t.Fatal("Should have failed: ")
-	}
-	err = writeFile(string(0), make([]byte, 1), 0777)
-	t.Log("writeFile err: ", err)
-	if err == nil {
-		t.Fatal("Should have failed: ")
-	}
+	err := writeFile("/invalid/", make([]byte, 1), 0777)
+	assert.Error(t, err)
 }
 
 func TestCAloadCNFromEnrollmentInfo(t *testing.T) {
 	ca, err := newCA(serverCfgFile(os.TempDir()), &CAConfig{}, &srv, true)
-	_, err = ca.loadCNFromEnrollmentInfo(string(0))
+	assert.NoError(t, err, "failed to create new CA")
+	_, err = ca.loadCNFromEnrollmentInfo("does-not-exist")
 	t.Log("loadCNFromEnrollmentInfo err: ", err)
 	if err == nil {
 		t.Error("Should have failed: ")
@@ -323,7 +315,7 @@ func TestCAgetUserAffiliation(t *testing.T) {
 	if err != nil {
 		t.Fatal("newCA failed ", err)
 	}
-	_, err = ca.getUserAffiliation(string(0))
+	_, err = ca.getUserAffiliation("does-not-exist")
 	t.Log("getUserAffiliation err: ", err)
 	if err == nil {
 		t.Error("getUserAffiliation should have failed: bad parameter")
@@ -337,7 +329,7 @@ func TestCAuserHasAttribute(t *testing.T) {
 	if err != nil {
 		t.Fatal("newCA failed ", err)
 	}
-	_, err = ca.userHasAttribute(string(0), string(0))
+	_, err = ca.userHasAttribute("does-not-exist", "does-not-exist")
 	t.Log("userHasAttribute err: ", err)
 	if err == nil {
 		t.Error("userHasAttribute should have failed: bad parameter")
@@ -403,7 +395,7 @@ func TestCAgetCaCert(t *testing.T) {
 	cfg = CAConfig{}
 
 	cfg.CSR = api.CSRInfo{CA: &csr.CAConfig{}}
-	cfg.CSR.CA.Expiry = string(0)
+	cfg.CSR.CA.Expiry = "not-a-date"
 	_, err := newCA(configFile, &cfg, &srv, false)
 	t.Log("getCaCert error: ", err)
 	if err == nil {
@@ -615,8 +607,10 @@ func TestCAVerifyCertificate(t *testing.T) {
 	err = GenerateECDSATestCert()
 	util.FatalError(t, err, "Failed to generate certificate for testing")
 	caCert1, err := ioutil.ReadFile("../testdata/ec_cert.pem")
+	assert.NoError(t, err, "failed to read ec_cert.pem")
 	caCert2 := append(caCert1, util.RandomString(128)...)
 	err = ioutil.WriteFile(filepath.Join(os.TempDir(), "ca-chainfile.pem"), caCert2, 0644)
+	assert.NoError(t, err, "failed to write ca-chainfile.pem")
 	ca.Config.CA.Chainfile = filepath.Join(os.TempDir(), "ca-chainfile.pem")
 	err = ca.VerifyCertificate(cert)
 	t.Log("ca.VerifyCertificate error: ", err)

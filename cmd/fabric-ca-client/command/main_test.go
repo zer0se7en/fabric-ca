@@ -42,7 +42,6 @@ import (
 
 const (
 	testdataDir          = "homeDir"
-	mspDir               = "../../../testdata/msp"
 	myhost               = "hostname"
 	certfile             = "ec.pem"
 	keyfile              = "ec-key.pem"
@@ -112,16 +111,15 @@ const jsonConfig = `{
 }`
 
 var (
-	defYaml       string
-	fabricCADB    = path.Join(tdDir, dbName)
-	srv           *lib.Server
-	serverURL     = fmt.Sprintf("http://localhost:%d", serverPort)
-	enrollURL     = fmt.Sprintf("http://admin:adminpw@localhost:%d", serverPort)
-	enrollURL1    = fmt.Sprintf("http://admin2:adminpw2@localhost:%d", serverPort)
-	tlsServerURL  = fmt.Sprintf("https://localhost:%d", serverPort)
-	tlsEnrollURL  = fmt.Sprintf("https://admin:adminpw@localhost:%d", serverPort)
-	tlsEnrollURL1 = fmt.Sprintf("https://admin2:adminpw2@localhost:%d", serverPort)
-	testYaml      = path.Join(tdDir, "test.yaml")
+	defYaml      string
+	fabricCADB   = path.Join(tdDir, dbName)
+	srv          *lib.Server
+	serverURL    = fmt.Sprintf("http://localhost:%d", serverPort)
+	enrollURL    = fmt.Sprintf("http://admin:adminpw@localhost:%d", serverPort)
+	enrollURL1   = fmt.Sprintf("http://admin2:adminpw2@localhost:%d", serverPort)
+	tlsServerURL = fmt.Sprintf("https://localhost:%d", serverPort)
+	tlsEnrollURL = fmt.Sprintf("https://admin:adminpw@localhost:%d", serverPort)
+	testYaml     = path.Join(tdDir, "test.yaml")
 )
 
 type TestData struct {
@@ -1280,6 +1278,9 @@ func TestMOption(t *testing.T) {
 // Checks to see if root and intermediate certificates are correctly getting stored in their respective directories
 func validCertsInDir(rootCertDir, interCertsDir string, t *testing.T) {
 	files, err := ioutil.ReadDir(rootCertDir)
+	if err != nil {
+		t.Fatalf("failed to read root cert dir: %s", err)
+	}
 	file := files[0].Name()
 	rootCertPath := filepath.Join(rootCertDir, file)
 	rootcert, err := util.GetX509CertificateFromPEMFile(rootCertPath)
@@ -1317,6 +1318,7 @@ func TestThreeCAHierarchy(t *testing.T) {
 func testThreeCAHierarchy(t *testing.T) {
 	validateCACerts := func(rootCertDir, interCertsDir string) {
 		files, err := ioutil.ReadDir(rootCertDir)
+		assert.NoError(t, err, "failed to read %", rootCertDir)
 		file := files[0].Name()
 		rootCertPath := filepath.Join(rootCertDir, file)
 		rootcaCertBytes, err := util.ReadFile(rootCertPath)
@@ -2190,7 +2192,6 @@ func TestCleanUp(t *testing.T) {
 	os.Remove(filepath.Join(tdDir, "IssuerRevocationPublicKey"))
 	os.Remove(testYaml)
 	os.Remove(fabricCADB)
-	os.RemoveAll(mspDir)
 	os.RemoveAll(moptionDir)
 	cleanMultiCADir()
 }

@@ -1,24 +1,13 @@
 /*
-Copyright IBM Corp. 2016 All Rights Reserved.
+Copyright IBM Corp. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-		 http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+SPDX-License-Identifier: Apache-2.0
 */
 
 package util_test
 
 import (
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -27,7 +16,6 @@ import (
 
 	"github.com/cloudflare/cfssl/csr"
 	. "github.com/hyperledger/fabric-ca/internal/pkg/util"
-	"github.com/hyperledger/fabric-ca/internal/pkg/util/mocks"
 	"github.com/hyperledger/fabric/bccsp"
 	"github.com/hyperledger/fabric/bccsp/factory"
 	"github.com/stretchr/testify/assert"
@@ -65,52 +53,39 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func testKeyGenerate(t *testing.T, kr *csr.KeyRequest, mustFail bool) {
-	req := csr.CertificateRequest{
-		KeyRequest: kr,
-	}
+func TestInitBCCSP(t *testing.T) {
+	mspDir, err := ioutil.TempDir("", "util-bccsp-msp")
+	assert.NoError(t, err)
+	defer os.RemoveAll(mspDir)
 
-	key, cspSigner, err := BCCSPKeyRequestGenerate(&req, csp)
-	if mustFail {
-		if err == nil {
-			t.Fatalf("BCCSPKeyRequestGenerate should had failed")
-		}
-	} else {
-		if err != nil {
-			t.Fatalf("BCCSPKeyRequestGenerate failed: %s", err)
-		}
-		if key == nil {
-			t.Fatalf("BCCSPKeyRequestGenerate key cannot be nil")
-		}
-		if cspSigner == nil {
-			t.Fatalf("BCCSPKeyRequestGenerate cspSigner cannot be nil")
-		}
-	}
+	var opts *factory.FactoryOpts
+	_, err = InitBCCSP(&opts, "", mspDir)
+	assert.NoError(t, err, "first initialization of BCCSP failed")
+
+	cfg := &factory.FactoryOpts{ProviderName: "SW"}
+	_, err = InitBCCSP(&cfg, "msp2", mspDir)
+	assert.NoError(t, err, "second initialization of BCCSP failed")
+
+	_, err = InitBCCSP(nil, "", mspDir)
+	assert.Error(t, err, "third initialization  of BCCSP should have failed")
 }
 
 func TestGetDefaultBCCSP(t *testing.T) {
 	csp := GetDefaultBCCSP()
-	if csp == nil {
-		t.Fatal("Failed to get default BCCSP")
-	}
+	assert.NotNil(t, csp, "failed to get default BCCSP")
 }
 
-func TestInitBCCSP(t *testing.T) {
-	mspDir := "msp"
-	var opts *factory.FactoryOpts
-	_, err := InitBCCSP(&opts, "", mspDir)
-	if err != nil {
-		t.Fatalf("Failed initialization 1 of BCCSP: %s", err)
+func testKeyGenerate(t *testing.T, kr *csr.KeyRequest, mustFail bool) {
+	req := csr.CertificateRequest{KeyRequest: kr}
+	key, cspSigner, err := BCCSPKeyRequestGenerate(&req, csp)
+	if mustFail {
+		assert.Error(t, err, "BCCSPKeyRequestGenerate should fail")
+		return
 	}
-	cfg := &factory.FactoryOpts{ProviderName: "SW"}
-	_, err = InitBCCSP(&cfg, "msp2", mspDir)
-	if err != nil {
-		t.Fatalf("Failed initialization 2 of BCCSP: %s", err)
-	}
-	_, err = InitBCCSP(nil, "", mspDir)
-	if err == nil {
-		t.Fatalf("Initialization 3 of BCCSP should have failed but did not")
-	}
+
+	assert.NoError(t, err, "BCCSPKeyRequestGenerate failed")
+	assert.NotNil(t, key, "created key must not be nil")
+	assert.NotNil(t, cspSigner, "created signer must not be nil")
 }
 
 func TestKeyGenerate(t *testing.T) {
@@ -132,51 +107,29 @@ func TestKeyGenerate(t *testing.T) {
 func testGetSignerFromCertFile(t *testing.T, keyFile, certFile string, mustFail int) {
 	key, err := ImportBCCSPKeyFromPEM(keyFile, csp, false)
 	if mustFail == 1 {
-		if err == nil {
-			t.Fatalf("ImportBCCSPKeyFromPEM should had failed")
-		}
+		assert.Error(t, err, "ImportBCCSPKeyFromPEM should had failed")
 		return
 	}
 
-	if err != nil {
-		t.Fatalf("ImportBCCSPKeyFromPEM failed: %s", err)
-	}
-	if key == nil {
-		t.Fatalf("ImportBCCSPKeyFromPEM key cannot be nil")
-	}
+	assert.NoError(t, err, "ImportBCCSPKeyFromPEM failed")
+	assert.NotNil(t, key, "imported key must not be nil")
 
 	key, signer, cert, err := GetSignerFromCertFile(certFile, csp)
 	if mustFail == 2 {
-		if err == nil {
-			t.Fatalf("ImportBCCSPKeyFromPEM should had failed")
-		}
+		assert.Error(t, err, "GetSignerFromCertFile should had failed")
 	} else {
-		if err != nil {
-			t.Fatalf("GetSignerFromCertFile failed: %s", err)
-		}
-		if key == nil {
-			t.Fatalf("GetSignerFromCertFile key cannot be nil")
-		}
-		if signer == nil {
-			t.Fatalf("GetSignerFromCertFile signer cannot be nil")
-		}
-		if cert == nil {
-			t.Fatalf("GetSignerFromCertFile cert cannot be nil")
-		}
+		assert.NoError(t, err, "GetSignerFromCertFile failed")
+		assert.NotNil(t, key, "key from GetSignerFromCertFile must not be nil")
+		assert.NotNil(t, signer, "signer from GetSignerFromCertFile must not be nil")
+		assert.NotNil(t, cert, "cert  from GetSignerFromCertFile must not be nil")
 	}
 
 	cer, err := LoadX509KeyPair(certFile, keyFile, csp)
 	if mustFail == 2 {
-		if err == nil {
-			t.Fatalf("LoadX509KeyPair should had failed")
-		}
+		assert.Error(t, err, "LoadX509KeyPair should had failed")
 	} else {
-		if err != nil {
-			t.Fatalf("LoadX509KeyPair failed: %s", err)
-		}
-		if cer.Certificate[0] == nil {
-			t.Fatalf("LoadX509KeyPair cert cannot be nil")
-		}
+		assert.NoError(t, err, "LoadX509KeyPair failed")
+		assert.NotNil(t, cer.Certificate[0], "LoadX509KeyPair cert cannot be nil")
 	}
 }
 
@@ -203,22 +156,16 @@ func TestGetSignerFromCertFile(t *testing.T) {
 
 func TestBccspBackedSigner(t *testing.T) {
 	signer, err := BccspBackedSigner("", "", nil, csp)
-	if signer != nil {
-		t.Fatalf("BccspBackedSigner should not be valid for empty cert: %s", err)
-	}
+	assert.Error(t, err, "BccspBackedSigner should have failed for empty cert")
+	assert.Nil(t, signer, "BccspBackedSigner must be nil for empty cert")
 
 	signer, err = BccspBackedSigner("doesnotexist.pem", "", nil, csp)
-	if err == nil {
-		t.Fatal("BccspBackedSigner should had failed to load cert")
-	}
-	if signer != nil {
-		t.Fatal("BccspBackedSigner should not be valid for non-existent cert")
-	}
+	assert.Error(t, err, "BccspBackedSigner should have failed to load cert")
+	assert.Nil(t, signer, "BccspBackedSigner must be nil for non-existent cert")
 
 	signer, err = BccspBackedSigner(filepath.Join("testdata", "ec.pem"), filepath.Join("testdata", "ec-key.pem"), nil, csp)
-	if signer == nil {
-		t.Fatalf("BccspBackedSigner should had found cert: %s", err)
-	}
+	assert.NoError(t, err, "BccspBackedSigner failed to load certificate")
+	assert.NotNil(t, signer, "BccspBackedSigner should had found cert")
 }
 
 func TestGetSignerFromCertInvalidArgs(t *testing.T) {
@@ -226,13 +173,8 @@ func TestGetSignerFromCertInvalidArgs(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "CSP was not initialized")
 
-	csp := &mocks.BCCSP{}
-	csp.On("KeyImport", (*x509.Certificate)(nil), &bccsp.X509PublicKeyImportOpts{Temporary: true}).Return(bccsp.Key(nil), errors.New("mock key import error"))
-	_, _, err = GetSignerFromCert(nil, csp)
+	_, _, err = GetSignerFromCert(&x509.Certificate{}, csp)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Failed to import certificate's public key: mock key import error")
-}
-
-func TestClean(t *testing.T) {
-	os.RemoveAll("csp")
+	assert.Contains(t, err.Error(), "Failed to import certificate's public key:")
+	assert.Contains(t, err.Error(), "Certificate's public key type not recognized.")
 }
