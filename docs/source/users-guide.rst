@@ -87,7 +87,7 @@ via the Hyperledger Fabric CA client or through one of the Fabric SDKs.
 All communication to the Hyperledger Fabric CA server is via REST APIs.
 See `fabric-ca/swagger/swagger-fabric-ca.json` for the swagger documentation
 for these REST APIs.
-You may view this documentation via the `Swagger online editor <http://editor.swagger.io>`_. 
+You may view this documentation via the `Swagger online editor <http://editor.swagger.io>`_.
 
 The Hyperledger Fabric CA client or SDK may connect to a server in a cluster
 of Hyperledger Fabric CA servers.   This is illustrated in the top right section
@@ -142,7 +142,7 @@ in $GOPATH/bin.
     go get -u github.com/hyperledger/fabric-ca/cmd/...
 
 Note: If you have already cloned the fabric-ca repository, make sure you are on the
-master branch before running the 'go get' command above. Otherwise, you might see the
+main branch before running the 'go get' command above. Otherwise, you might see the
 following error:
 
 ::
@@ -450,8 +450,6 @@ Elliptic Curve (ECDSA) offers the following key size options:
 | 256    | prime256v1   | ecdsa-with-SHA256     |
 +--------+--------------+-----------------------+
 | 384    | secp384r1    | ecdsa-with-SHA384     |
-+--------+--------------+-----------------------+
-| 521    | secp521r1    | ecdsa-with-SHA512     |
 +--------+--------------+-----------------------+
 
 Starting the server
@@ -832,7 +830,7 @@ For example, the following is NOT a valid expression:
 
 .. code:: yaml
 
-     value: attr("gidNumber) >= 10000 && attr("gidNumber) < 10006
+     value: attr("gidNumber") >= 10000 && attr("gidNumber") < 10006
 
 Alternatively, a regular expression enclosed in quotes as shown below may be used
 to return an equivalent result:
@@ -1563,7 +1561,7 @@ that are required by the verifier and can do so without being linkable across th
 
 Fabric CA server can issue Idemix credentials in addition to X509 certificates. An Idemix credential can be requested by sending the request to
 the ``/api/v1/idemix/credential`` API endpoint. For more information on this and other Fabric CA server API endpoints, please refer to
-`swagger-fabric-ca.json <https://github.com/hyperledger/fabric-ca/blob/master/swagger/swagger-fabric-ca.json>`_.
+`swagger-fabric-ca.json <https://github.com/hyperledger/fabric-ca/blob/main/swagger/swagger-fabric-ca.json>`_.
 
 The Idemix credential issuance is a two step process. First, send a request with an empty body to the ``/api/v1/idemix/credential``
 API endpoint to get a nonce and CA's Idemix public key. Second, create a credential request using the nonce and CA's Idemix public key and
@@ -1574,7 +1572,7 @@ Credential Revocation Information (CRI), and attribute names and values. Current
 - **IsAdmin** - if the identity is an admin or not. The value of this attribute is set to the value of `isAdmin` registration attribute.
 - **EnrollmentID** - enrollment ID of the identity
 
-You can refer to the `handleIdemixEnroll` function in https://github.com/hyperledger/fabric-ca/blob/master/lib/client.go for reference implementation
+You can refer to the `handleIdemixEnroll` function in https://github.com/hyperledger/fabric-ca/blob/main/lib/client.go for reference implementation
 of the two step process for getting Idemix credential.
 
 The ``/api/v1/idemix/credential`` API endpoint accepts both basic and token authorization headers. The basic authorization header should
